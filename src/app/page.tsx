@@ -1,115 +1,93 @@
 "use client";
-
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
-export default function ScrollVideo() {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
+export default function ScrollVideoSmooth() {
+  const container = useRef<HTMLDivElement>(null);
+  const video = useRef<HTMLVideoElement>(null);
+  const canvas = useRef<HTMLCanvasElement>(null);
   const [duration, setDuration] = useState(0);
-  const [isClient, setIsClient] = useState(false);
+  const [frameCbId, setFrameCbId] = useState<number>();
 
-  // Handle client-side initialization
-  useEffect(() => {
-    setIsClient(true);
+  useLayoutEffect(() => {
+    gsap.registerPlugin(ScrollTrigger);
   }, []);
 
-  useEffect(() => {
-    if (!isClient) return;
+  useLayoutEffect(() => {
+    const vid = video.current!;
+    const cn = canvas.current!;
+    const ctx = cn.getContext("2d", { alpha: false })!;
+    if (!vid || !cn) return;
 
-    // Register GSAP plugins only on client side
-    gsap.registerPlugin(ScrollTrigger);
-
-    const video = videoRef.current;
-    const container = containerRef.current;
-
-    if (!video || !container) return;
-
-    const onLoaded = () => {
-      const dur = video.duration;
-      setDuration(dur);
-
-      // Calculate viewport height
-      const vh = window.innerHeight;
-      const totalHeight = 14 * vh; // 1400vh in pixels
-
-      // Set container height explicitly in pixels to ensure accuracy
-      container.style.height = `${totalHeight}px`;
-
-      // Create the scroll trigger animation
-      gsap.to(video, {
-        currentTime: dur,
-        ease: "none",
-        scrollTrigger: {
-          trigger: container,
-          start: "top top",
-          endTrigger: container,
-          end: "bottom bottom",
-          scrub: true,
-          pin: true,
-          anticipatePin: 1,
-          invalidateOnRefresh: true,
-          markers: true,
-          onUpdate: (self) => {
-            // Ensure we're using the full scroll range
-            const progress = Math.min(self.progress, 1);
-            const targetTime = dur * progress;
-            if (Math.abs(video.currentTime - targetTime) > 0.01) {
-              video.currentTime = targetTime;
-            }
-          },
-        },
-      });
+    // Prepare canvas size
+    const resizeCanvas = () => {
+      const ar = vid.videoWidth / vid.videoHeight;
+      cn.width = window.innerWidth;
+      cn.height = window.innerWidth / ar;
     };
+    window.addEventListener("resize", resizeCanvas);
 
-    if (video.readyState >= 2) {
-      onLoaded();
-    } else {
-      video.addEventListener("loadedmetadata", onLoaded);
+    // Draw via requestVideoFrameCallback
+    function paint(now: number, meta: any) {
+      ctx.clearRect(0, 0, cn.width, cn.height);
+      ctx.drawImage(vid, 0, 0, cn.width, cn.height);
+      setFrameCbId(vid.requestVideoFrameCallback(paint));
     }
 
-    const handleResize = () => {
-      if (video.duration) {
-        // Recalculate height on resize
-        const vh = window.innerHeight;
-        const totalHeight = 14 * vh; // 1400vh
-        container.style.height = `${totalHeight}px`;
-        ScrollTrigger.refresh();
-      }
+    // On metadata: set height & start frame loop + ScrollTrigger
+    const onMeta = () => {
+      resizeCanvas();
+      setDuration(vid.duration);
+      // Kick off frame paint
+      setFrameCbId(vid.requestVideoFrameCallback(paint));
+      // ScrollTrigger scrub
+      gsap.to(
+        { t: 0 },
+        {
+          t: vid.duration,
+          ease: "none",
+          onUpdate() {
+            vid.currentTime = this.targets()[0].t;
+          },
+          scrollTrigger: {
+            trigger: container.current!,
+            start: "top top",
+            end: `+=${vid.duration * window.innerHeight}`,
+            scrub: true,
+            pin: true,
+            anticipatePin: 1,
+            invalidateOnRefresh: true,
+            fastScrollEnd: true,
+          },
+        }
+      );
     };
-
-    window.addEventListener("resize", handleResize);
+    vid.addEventListener("loadedmetadata", onMeta);
+    if (vid.readyState >= 2) onMeta();
 
     return () => {
-      video.removeEventListener("loadedmetadata", onLoaded);
-      window.removeEventListener("resize", handleResize);
+      vid.cancelVideoFrameCallback(frameCbId!);
       ScrollTrigger.getAll().forEach((t) => t.kill());
+      window.removeEventListener("resize", resizeCanvas);
     };
-  }, [isClient]);
+  }, []);
 
   return (
     <div
-      ref={containerRef}
+      ref={container}
       className="relative w-full overflow-hidden bg-black"
-      style={{
-        height: "1400vh",
-        minHeight: "1400vh",
-      }}
+      style={{ willChange: "transform" }}
     >
-      <div className="sticky top-0 w-full h-screen">
-        {isClient && (
-          <video
-            ref={videoRef}
-            src="/video/videoNew.webm"
-            muted
-            playsInline
-            preload="auto"
-            className="w-full h-full object-cover"
-            style={{ zIndex: 1 }}
-          />
-        )}
-      </div>
+      <canvas ref={canvas} className="w-full h-full object-cover" />
+      <video
+        ref={video}
+        src="/video/videoNew.webm"
+        muted
+        playsInline
+        preload="auto"
+        className="hidden"
+      />
     </div>
   );
 }
