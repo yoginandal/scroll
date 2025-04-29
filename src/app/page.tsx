@@ -7,7 +7,6 @@ export default function ScrollVideoSmooth() {
   const container = useRef<HTMLDivElement>(null);
   const video = useRef<HTMLVideoElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
-  const [duration, setDuration] = useState(0);
   const [frameCbId, setFrameCbId] = useState<number>();
 
   useLayoutEffect(() => {
@@ -29,7 +28,7 @@ export default function ScrollVideoSmooth() {
     window.addEventListener("resize", resizeCanvas);
 
     // Draw via requestVideoFrameCallback
-    function paint(now: number, meta: any) {
+    function paint() {
       ctx.clearRect(0, 0, cn.width, cn.height);
       ctx.drawImage(vid, 0, 0, cn.width, cn.height);
       setFrameCbId(vid.requestVideoFrameCallback(paint));
@@ -38,7 +37,6 @@ export default function ScrollVideoSmooth() {
     // On metadata: set height & start frame loop + ScrollTrigger
     const onMeta = () => {
       resizeCanvas();
-      setDuration(vid.duration);
       // Kick off frame paint
       setFrameCbId(vid.requestVideoFrameCallback(paint));
       // ScrollTrigger scrub
@@ -76,10 +74,10 @@ export default function ScrollVideoSmooth() {
   return (
     <div
       ref={container}
-      className="relative w-full overflow-hidden bg-black"
+      className="relative w-full h-screen flex items-center justify-center overflow-hidden bg-black"
       style={{ willChange: "transform" }}
     >
-      <canvas ref={canvas} className="w-full h-full object-cover" />
+      <canvas ref={canvas} className="w-full h-full object-contain" />
       <video
         ref={video}
         src="/video/videoNew.webm"
