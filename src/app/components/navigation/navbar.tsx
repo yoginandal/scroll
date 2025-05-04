@@ -112,8 +112,8 @@ export default function Navbar() {
             key="menu"
             className="fixed inset-0 z-40"
             style={{
-              backgroundColor: "var(--background)",
-              color: "var(--foreground)",
+              backgroundColor: "var(--foreground)",
+              color: "var(--background)",
             }}
             initial={{ y: "-100%" }}
             animate={shutterControls}
@@ -138,7 +138,7 @@ export default function Navbar() {
                   <motion.a
                     href={item.href}
                     className="text-6xl font-black tracking-tighter hover:text-gray-500 transition-colors block"
-                    style={{ color: "var(--foreground)" }}
+                    style={{ color: "var(--background)" }}
                     whileHover={{
                       x: 20,
                       transition: {
