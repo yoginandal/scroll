@@ -1,8 +1,10 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: white; /* Light gray */
+  --foreground: black; /* Dark gray */
+  --navbar-bg: transparent; /* Transparent navbar */
+  --navbar-text: black; /* Dark gray text */
 }
 
 @theme inline {
@@ -12,11 +14,11 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+.dark {
+  --background: black; /* Dark gray */
+  --foreground: white; /* Light gray */
+  --navbar-bg: transparent; /* Transparent navbar */
+  --navbar-text: white; /* Light gray text */
 }
 
 body {
@@ -24,10 +26,6 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
-
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
 
 html {
   scroll-behavior: smooth;

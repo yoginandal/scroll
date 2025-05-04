@@ -1,6 +1,4 @@
 import { ReactNode } from "react";
-
-import Navbar from "@/app/components/navigation/navbar";
 import { Footer } from "@/app/components/navigation/footer";
 
 interface MainLayoutProps {
@@ -9,12 +7,17 @@ interface MainLayoutProps {
 
 export function MainLayout({ children }: MainLayoutProps) {
   return (
-    <main className="relative min-h-screen bg-black text-white overflow-hidden">
+    <div
+      className="relative min-h-screen"
+      style={{
+        backgroundColor: "var(--background)",
+        color: "var(--foreground)",
+      }}
+    >
       <div className="relative z-10">
-        <Navbar />
         {children}
         <Footer />
       </div>
-    </main>
+    </div>
   );
 }

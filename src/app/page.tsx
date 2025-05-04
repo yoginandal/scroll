@@ -1,12 +1,15 @@
 "use client";
 
-import { MainLayout } from "@/app/components/layout/MainLayout";
+import { MainLayout } from "./components/layout/MainLayout";
 import ScrollVideo from "./components/ScrollVideo";
+import SmoothScroll from "./components/SmoothScroll";
 
 export default function Home() {
   return (
-    <MainLayout>
-      <ScrollVideo />
-    </MainLayout>
+    <SmoothScroll>
+      <MainLayout>
+        <ScrollVideo />
+      </MainLayout>
+    </SmoothScroll>
   );
 }

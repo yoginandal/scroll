@@ -3,10 +3,38 @@
 import { useState, useEffect, useLayoutEffect } from "react";
 import { motion, AnimatePresence, useAnimation } from "framer-motion";
 import { Switch } from "@/app/components/ui/Switch";
+import { LightDark } from "@/app/components/ui/LightDark";
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isDark, setIsDark] = useState(false);
   const shutterControls = useAnimation();
+
+  useEffect(() => {
+    // Set initial theme based on localStorage or default to light
+    const savedTheme = localStorage.getItem("theme");
+    if (savedTheme === "dark") {
+      setIsDark(true);
+      document.documentElement.classList.add("dark");
+    } else {
+      setIsDark(false);
+      document.documentElement.classList.remove("dark");
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    setIsDark((prev) => {
+      const newTheme = !prev;
+      if (newTheme) {
+        document.documentElement.classList.add("dark");
+        localStorage.setItem("theme", "dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+        localStorage.setItem("theme", "light");
+      }
+      return newTheme;
+    });
+  };
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -30,12 +58,12 @@ export default function Navbar() {
         transition: { duration: 0.3, ease: "easeIn" },
       });
 
-      // Series of bounces that never go below y=0 (the floor)
+      // Only two bounces
       await shutterControls.start({
-        y: [0, -80, 0, -40, 0, -20, 0, -10, 0, -5, 0],
+        y: [0, -80, 0, -30, 0],
         transition: {
-          duration: 1.5,
-          times: [0, 0.15, 0.3, 0.45, 0.6, 0.7, 0.8, 0.9, 0.95, 0.98, 1],
+          duration: 0.8,
+          times: [0, 0.25, 0.5, 0.75, 1],
           ease: "easeOut",
         },
       });
@@ -62,10 +90,17 @@ export default function Navbar() {
 
   return (
     <div className="fixed top-0 left-0 w-full z-50">
-      <header className="w-full shadow-sm">
+      <header
+        className="w-full transition-colors duration-300"
+        style={{
+          backgroundColor: "var(--navbar-bg)",
+          color: "var(--navbar-text)",
+        }}
+      >
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="text-xl font-bold">Logo</div>
-          <div className="cursor-pointer z-50">
+          <div className="flex items-center gap-2 z-50">
+            <LightDark isDark={isDark} onToggle={toggleTheme} />
             <Switch isChecked={isMenuOpen} onChange={toggleMenu} />
           </div>
         </div>
@@ -75,7 +110,11 @@ export default function Navbar() {
         {isMenuOpen && (
           <motion.div
             key="menu"
-            className="fixed inset-0 bg-white z-40"
+            className="fixed inset-0 z-40"
+            style={{
+              backgroundColor: "var(--background)",
+              color: "var(--foreground)",
+            }}
             initial={{ y: "-100%" }}
             animate={shutterControls}
             exit={{ y: "-100%", transition: { duration: 0.5 } }}
@@ -84,23 +123,22 @@ export default function Navbar() {
               {navItems.map((item, i) => (
                 <motion.div
                   key={item.name}
-                  // No initial opacity animation - items are visible from the start
                   animate={{
                     y: [0, -30 - i * 15, 0, -15 - i * 8, 0, -5 - i * 3, 0],
                     transition: {
                       duration: 1.2,
                       times: [0, 0.2, 0.4, 0.6, 0.8, 0.9, 1],
                       ease: "easeOut",
-                      delay: 0.3, // All items start bouncing at the same time after shutter impact
+                      delay: 0.3,
                     },
                   }}
-                  // No exit opacity animation
                   exit={{ y: 0 }}
                   className="overflow-visible"
                 >
                   <motion.a
                     href={item.href}
-                    className="text-black text-6xl font-black tracking-tighter hover:text-gray-500 transition-colors block"
+                    className="text-6xl font-black tracking-tighter hover:text-gray-500 transition-colors block"
+                    style={{ color: "var(--foreground)" }}
                     whileHover={{
                       x: 20,
                       transition: {
