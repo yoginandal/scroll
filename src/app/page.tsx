@@ -6,10 +6,12 @@ import SmoothScroll from "./components/SmoothScroll";
 
 export default function Home() {
   return (
-    <SmoothScroll>
-      <MainLayout>
-        <ScrollVideo />
-      </MainLayout>
-    </SmoothScroll>
+    <>
+      <SmoothScroll>
+        <MainLayout>
+          <ScrollVideo />
+        </MainLayout>
+      </SmoothScroll>
+    </>
   );
 }
