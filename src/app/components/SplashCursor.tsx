@@ -22,6 +22,7 @@ interface SplashCursorProps {
   COLOR_UPDATE_SPEED?: number;
   BACK_COLOR?: ColorRGB;
   TRANSPARENT?: boolean;
+  PARTICLE_OPACITY?: number;
 }
 
 interface Pointer {
@@ -53,20 +54,21 @@ function pointerPrototype(): Pointer {
 }
 
 export default function SplashCursor({
-  SIM_RESOLUTION = 128,
-  DYE_RESOLUTION = 1440,
+  SIM_RESOLUTION = 64,
+  DYE_RESOLUTION = 1024,
   CAPTURE_RESOLUTION = 512,
-  DENSITY_DISSIPATION = 3.5,
-  VELOCITY_DISSIPATION = 2,
-  PRESSURE = 0.1,
+  DENSITY_DISSIPATION = 4.5,
+  VELOCITY_DISSIPATION = 3,
+  PRESSURE = 0.05,
   PRESSURE_ITERATIONS = 20,
   CURL = 3,
-  SPLAT_RADIUS = 0.2,
-  SPLAT_FORCE = 6000,
+  SPLAT_RADIUS = 0.15,
+  SPLAT_FORCE = 4000,
   SHADING = true,
-  COLOR_UPDATE_SPEED = 10,
+  COLOR_UPDATE_SPEED = 0,
   BACK_COLOR = { r: 0.5, g: 0, b: 0 },
   TRANSPARENT = true,
+  PARTICLE_OPACITY = 0.1,
 }: SplashCursorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -75,11 +77,11 @@ export default function SplashCursor({
     if (!canvas) return; // Guard canvas early
 
     // Pointer and config setup
-    let pointers: Pointer[] = [pointerPrototype()];
+    const pointers: Pointer[] = [pointerPrototype()];
 
     // All these are guaranteed numbers due to destructuring defaults
     // So we cast them to remove TS warnings:
-    let config = {
+    const config = {
       SIM_RESOLUTION: SIM_RESOLUTION!,
       DYE_RESOLUTION: DYE_RESOLUTION!,
       CAPTURE_RESOLUTION: CAPTURE_RESOLUTION!,
@@ -95,6 +97,7 @@ export default function SplashCursor({
       PAUSED: false,
       BACK_COLOR,
       TRANSPARENT,
+      PARTICLE_OPACITY: PARTICLE_OPACITY!,
     };
 
     // Get WebGL context (WebGL1 or WebGL2)
@@ -154,13 +157,24 @@ export default function SplashCursor({
 
       gl.clearColor(0, 0, 0, 1);
 
+      // Define a type for WebGL extensions
+      interface WebGLExtension {
+        HALF_FLOAT_OES: number;
+      }
+
+      // Define a type for the texture format objects
+      interface TextureFormat {
+        internalFormat: number;
+        format: number;
+      }
+
       const halfFloatTexType = isWebGL2
         ? (gl as WebGL2RenderingContext).HALF_FLOAT
-        : (halfFloat && (halfFloat as any).HALF_FLOAT_OES) || 0;
+        : (halfFloat && (halfFloat as WebGLExtension).HALF_FLOAT_OES) || 0;
 
-      let formatRGBA: any;
-      let formatRG: any;
-      let formatR: any;
+      let formatRGBA: TextureFormat | null;
+      let formatRG: TextureFormat | null;
+      let formatR: TextureFormat | null;
 
       if (isWebGL2) {
         formatRGBA = getSupportedFormat(
@@ -316,7 +330,7 @@ export default function SplashCursor({
     }
 
     function getUniforms(program: WebGLProgram) {
-      let uniforms: Record<string, WebGLUniformLocation | null> = {};
+      const uniforms: Record<string, WebGLUniformLocation | null> = {};
       const uniformCount = gl.getProgramParameter(program, gl.ACTIVE_UNIFORMS);
       for (let i = 0; i < uniformCount; i++) {
         const uniformInfo = gl.getActiveUniform(program, i);
@@ -900,9 +914,9 @@ export default function SplashCursor({
       const dyeRes = getResolution(config.DYE_RESOLUTION!);
 
       const texType = ext.halfFloatTexType;
-      const rgba = ext.formatRGBA;
-      const rg = ext.formatRG;
-      const r = ext.formatR;
+      const rgba = ext.formatRGBA!;
+      const rg = ext.formatRG!;
+      const r = ext.formatR!;
       const filtering = ext.supportLinearFiltering ? gl.LINEAR : gl.NEAREST;
       gl.disable(gl.BLEND);
 
@@ -984,7 +998,7 @@ export default function SplashCursor({
       const w = gl.drawingBufferWidth;
       const h = gl.drawingBufferHeight;
       const aspectRatio = w / h;
-      let aspect = aspectRatio < 1 ? 1 / aspectRatio : aspectRatio;
+      const aspect = aspectRatio < 1 ? 1 / aspectRatio : aspectRatio;
       const min = Math.round(resolution);
       const max = Math.round(resolution * aspect);
       if (w > h) {
@@ -1384,55 +1398,44 @@ export default function SplashCursor({
     }
 
     function generateColor(): ColorRGB {
-      const c = HSVtoRGB(Math.random(), 1.0, 1.0);
-      c.r *= 0.15;
-      c.g *= 0.15;
-      c.b *= 0.15;
-      return c;
-    }
+      // Get the current background color from CSS variables
+      const bgColorStyle = getComputedStyle(document.documentElement)
+        .getPropertyValue("--background")
+        .trim();
 
-    function HSVtoRGB(h: number, s: number, v: number): ColorRGB {
-      let r = 0,
-        g = 0,
-        b = 0;
-      const i = Math.floor(h * 6);
-      const f = h * 6 - i;
-      const p = v * (1 - s);
-      const q = v * (1 - f * s);
-      const t = v * (1 - (1 - f) * s);
+      // Default to white if we can't parse the background
+      let r = 1,
+        g = 1,
+        b = 1;
 
-      switch (i % 6) {
-        case 0:
-          r = v;
-          g = t;
-          b = p;
-          break;
-        case 1:
-          r = q;
-          g = v;
-          b = p;
-          break;
-        case 2:
-          r = p;
-          g = v;
-          b = t;
-          break;
-        case 3:
-          r = p;
-          g = q;
-          b = v;
-          break;
-        case 4:
-          r = t;
-          g = p;
-          b = v;
-          break;
-        case 5:
-          r = v;
-          g = p;
-          b = q;
-          break;
+      // Try to parse the background color
+      if (bgColorStyle) {
+        if (bgColorStyle.startsWith("rgb")) {
+          // Parse RGB format
+          const rgbMatch = bgColorStyle.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+          if (rgbMatch) {
+            // Convert RGB values (0-255) to (0-1) and invert
+            r = 1 - parseInt(rgbMatch[1]) / 255;
+            g = 1 - parseInt(rgbMatch[2]) / 255;
+            b = 1 - parseInt(rgbMatch[3]) / 255;
+          }
+        } else if (bgColorStyle.startsWith("#")) {
+          // Parse hex format
+          const hex = bgColorStyle.substring(1);
+          const bigint = parseInt(hex, 16);
+          // Convert hex values to (0-1) and invert
+          r = 1 - ((bigint >> 16) & 255) / 255;
+          g = 1 - ((bigint >> 8) & 255) / 255;
+          b = 1 - (bigint & 255) / 255;
+        }
       }
+
+      // Scale down the intensity for a more subtle effect
+      // Use the PARTICLE_OPACITY config parameter
+      r *= config.PARTICLE_OPACITY;
+      g *= config.PARTICLE_OPACITY;
+      b *= config.PARTICLE_OPACITY;
+
       return { r, g, b };
     }
 
@@ -1536,6 +1539,7 @@ export default function SplashCursor({
     COLOR_UPDATE_SPEED,
     BACK_COLOR,
     TRANSPARENT,
+    PARTICLE_OPACITY,
   ]);
 
   return (
@@ -1544,18 +1548,19 @@ export default function SplashCursor({
         position: "fixed",
         top: 0,
         left: 0,
-        zIndex: 50,
+        zIndex: 9999,
         pointerEvents: "none",
-        width: "100%",
-        height: "100%",
+        width: "100vw",
+        height: "100vh",
+        overflow: "hidden",
       }}
     >
       <canvas
         ref={canvasRef}
         id="fluid"
         style={{
-          width: "100vw",
-          height: "100vh",
+          width: "100%",
+          height: "100%",
           display: "block",
         }}
       />

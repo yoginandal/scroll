@@ -1,17 +1,62 @@
 "use client";
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState, useEffect } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useLenis } from "lenis/react";
 
 export default function ScrollVideo() {
   const container = useRef<HTMLDivElement>(null);
   const video = useRef<HTMLVideoElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const [frameCbId, setFrameCbId] = useState<number>();
+  const lenis = useLenis();
 
+  // Register GSAP plugins
   useLayoutEffect(() => {
     gsap.registerPlugin(ScrollTrigger);
+
+    // Disable GSAP ticker lag smoothing for better performance with Lenis
+    gsap.ticker.lagSmoothing(0);
   }, []);
+
+  // Apply custom scrolling behavior specifically for this component
+  useEffect(() => {
+    if (!lenis || !container.current) return;
+
+    // Modify Lenis behavior when this component is in the viewport
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            // When ScrollVideo is in view, adjust Lenis behavior
+            lenis.options.duration = 2;
+            lenis.options.wheelMultiplier = 1;
+          } else {
+            // Reset to default when ScrollVideo is not in view
+            lenis.options.duration = 1.2;
+            lenis.options.wheelMultiplier = 1;
+          }
+        });
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(container.current);
+
+    // Connect Lenis scroll events to ScrollTrigger
+    const scrollHandler = () => ScrollTrigger.update();
+    lenis.on("scroll", scrollHandler);
+
+    return () => {
+      if (container.current) observer.unobserve(container.current);
+      observer.disconnect();
+      lenis.off("scroll", scrollHandler);
+
+      // Reset Lenis options when component unmounts
+      lenis.options.duration = 1.2;
+      lenis.options.wheelMultiplier = 1;
+    };
+  }, [lenis]);
 
   useLayoutEffect(() => {
     const vid = video.current!;
@@ -48,14 +93,12 @@ export default function ScrollVideo() {
         trigger: container.current!,
         start: "top top",
         end: `+=${vid.duration * window.innerHeight}`,
-        scrub: 0.1, // Much faster scrub for more responsive feel
+        scrub: 0.1,
         pin: true,
         anticipatePin: 1,
         invalidateOnRefresh: true,
         onUpdate: (self) => {
-          // Use a more aggressive easing for faster response
           const progress = gsap.utils.clamp(0, 1, self.progress);
-          // Add a small threshold to prevent frame drops at the end
           if (progress > 0.99) {
             vid.currentTime = vid.duration;
           } else if (progress < 0.01) {
